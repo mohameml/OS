@@ -1,4 +1,4 @@
-# cour 02 : Gestion des activités parallèles
+# cour 02 : Processus
 
 ## I. Processus 
 
@@ -437,28 +437,10 @@ struct task_struct {
 
 
 
-### 2. Exemples :
-
-#### a. Écriture -> lecture : 
-   
-   - Un processus écrit dans un tampon 
-   
-   - Un second processus doit prélever le résultat
-
-   - Condition : ``fin(écriture) < début(lecture)``
-
-#### b. Rendez-vous:
-
-   -  N processus, chacun avec un point de  rendez-vous .
-
-   - Lorsqu’un processus arrive à son point de  rendez-vous, il se bloque sauf si tous les  autres sont déjà arrivés .
-
-   - Le dernier arrivé débloque tous les autres.
-
-   - Condition d’attente : nb_arrivés < N .
 
 
-### 3. Les moniteurs : un outil de  synchronisation
+
+### 2. Les moniteurs : un outil de  synchronisation
 
 
 #### a. Définition d'un  **Moniteur** 
@@ -484,13 +466,7 @@ struct task_struct {
 
       - **Variables de condition** : Des variables associées au moniteur qui permettent aux threads d'attendre ou d'être notifiés lorsque certaines conditions sont remplies.
 
-      **Variables de Condition (Wait et Signal)** :
 
-      Les variables de condition sont utilisées en conjonction avec un moniteur pour permettre à un thread de suspendre son exécution jusqu'à ce qu'une condition spécifique soit remplie, ou pour signaler qu'une condition a été satisfaite. En général, il existe deux opérations associées aux variables de condition : `Wait` et `Signal` (ou `Wait` et `SignalAll`).
-
-      - **Wait (Attendre)** : L'opération `Wait` permet à un thread de libérer le verrou associé au moniteur et de se mettre en attente jusqu'à ce qu'un autre thread signale ou notifie la condition attendue. Lorsqu'un thread appelle `Wait`, il relâche le verrou du moniteur, ce qui permet à d'autres threads d'entrer dans le moniteur. Le thread est mis en attente jusqu'à ce qu'un autre thread le réveille en signalant la condition.
-
-      - **Signal (Signaler)** : L'opération `Signal` (ou `SignalAll`) est utilisée pour signaler à un ou plusieurs threads en attente qu'une certaine condition a été satisfaite. Cela réveille l'un des threads en attente qui avait précédemment appelé `Wait` sur la même variable de condition. `SignalAll` réveille tous les threads en attente.
 
 
 #### RQ : comment assurer l'exclusion mutuelle ? 
@@ -514,10 +490,188 @@ Pour assurere l'exclusion mutuelle , Il suffit de regrouper toutes les **section
       * ``Signal``: L'opération Signal  est utilisée pour signaler à un ou plusieurs threads en attente qu'une certaine condition a été satisfaite. Cela réveille l'un des threads en attente qui avait précédemment appelé Wait sur la même variable de condition. 
 
 
+#### RQ **Sémantique de signaler :**
+
+   - Que se passe-t-il quand signaler réveille un  processus  ?
+   
+      * Sans précaution, deux processus sont actifs  dans le moniteur, celui qui signale et celui  qui est réveillé
+
+      * Le processus qui effectue signaler se bloque  et ne reprendra la main que lorsque le  processus réveillé quitte le moniteu
+ 
 
 
 
 
 
 
+### 3. Exemples :
 
+#### a. Écriture -> lecture : 
+   
+   - Un processus écrit dans un tampon 
+   
+   - Un second processus doit prélever le résultat
+
+   - Condition : ``fin(écriture) < début(lecture)``
+
+   - Algo d'un moniteur de sync :
+
+      ```algo
+      sync : moniteur;
+
+      var fait:booléen; 
+      fini : condition ;
+
+      --initialisation
+      fait := faux ;
+      
+
+      
+      procédure fin_écrire ;
+      début
+         fait:=vrai; 
+         fini.signaler;
+      fin ;
+
+      procédure début_lire ;
+      si non fait alors: 
+         fini.attendre fsi;
+
+      fin sync
+
+      ```
+
+#### b. Rendez-vous:
+
+   -  N processus, chacun avec un point de  rendez-vous .
+
+   - Lorsqu’un processus arrive à son point de  rendez-vous, il se bloque sauf si tous les  autres sont déjà arrivés .
+
+   - Le dernier arrivé débloque tous les autres.
+
+   - Condition d’attente : nb_arrivés < N .
+
+   - Algo de sync :
+
+      ```algo
+      rendezvous :moniteur
+
+
+      var n entier ; 
+      tousla :condition;
+
+      --initialisation
+      n := 0 ; 
+
+
+
+
+      -- ou une autre maniére  d'implémenter arriver 
+      procedure arriver;
+      début
+      n:=n+1; 
+      si n<N alors 
+         tousla.attendre;
+      else
+         while(n >= 0)
+            tousla.signaler
+            n=n-1;
+      
+      fin;
+      
+      fin rendezvous  ;   
+      
+      
+      
+      ```
+
+   
+#### c. Modèle du producteur et du  consommateur :
+
+   - **Description :**
+
+      Le problème classique du producteur et du consommateur est un exemple courant de synchronisation dans la programmation concurrente. Il implique deux types de processus : les producteurs, qui produisent des données, et les consommateurs, qui consomment ces données. Ces processus partagent un tampon de communication de N cases, où le producteur dépose un message à la fois, et le consommateur retire un message à la fois.
+
+   - **Contraintes de synchronisation :**
+
+      * Soit n le nombre de messages actuellement présents dans le tampon. Cette valeur doit être maintenue et mise à jour de manière cohérente.
+
+      * **Contrainte de dépôt** : Lorsque le producteur souhaite déposer un message dans le tampon, il doit vérifier que l'espace est disponible. Autrement dit, il ne peut déposer un message que si `n < N`, où N est la capacité totale du tampon.
+
+      * **Contrainte de retrait** : Lorsque le consommateur souhaite retirer un message du tampon, il doit vérifier que le tampon contient au moins un message. Il ne peut retirer un message que si `n > 0`.
+
+   - **solution:**
+
+      ```algo
+
+      Moniteur prod_cons :
+
+         Variables partagées :
+            n : entier       // Nombre de messages dans le tampon
+            cprod : condition // Condition pour les producteurs
+            ccons : condition // Condition pour les consommateurs
+
+         -- initialisation  :
+         n := 0 
+
+         Procédure deposer(m)
+            Si n = N alors
+                  Attendre(cprod)   // Attente si le tampon est plein
+            Fin Si
+            n++                 // Incrémentation du nombre de messages
+            Déposer(m)           // Réaliser le dépôt du message
+            Signaler(ccons)     // Réveiller un consommateur éventuellement en attente
+
+         Procédure retirer(m)
+            Si n = 0 alors
+                  Attendre(ccons)   // Attente si le tampon est vide
+            Fin Si
+            n--                 // Décrémentation du nombre de messages
+            Retirer(m)           // Réaliser le retrait du message
+            Signaler(cprod)     // Réveiller un producteur éventuellement en attente
+
+         
+      Fin Moniteur
+      
+      
+      
+      ```
+
+
+### 4. **Synchronisation temporelle :**
+
+
+- La synchronisation temporelle est un concept important en informatique et en programmation, qui concerne principalement la gestion du temps et de la coordination dans un système informatique. 
+
+
+
+- **Horloge :**
+L'horloge est un composant essentiel pour la synchronisation temporelle. Elle fournit une mesure du temps qui permet aux processus et aux systèmes de coordonner leurs actions en fonction de l'heure actuelle.
+
+- **Attendre (h) :**
+L'opération "Attendre (h)" bloque le processus jusqu'à ce que l'heure actuelle atteigne ou dépasse l'heure h spécifiée. Cela peut être utile lorsque vous avez besoin de retarder l'exécution d'une tâche jusqu'à un moment précis.
+
+- **Suspendre (t) :**
+L'opération "Suspendre (t)" bloque le processus pendant une période de temps t spécifiée. Pendant cette période, le processus ne sera pas actif et ne consommera pas de ressources de calcul. Cela peut être utilisé pour introduire des retards ou pour planifier l'exécution de tâches à un moment donné.
+
+
+### III . Threads ou processus légers :
+
+
+- Les threads, également appelés processus légers, sont des unités d'exécution légères et indépendantes qui composent un processus. Un processus est une instance d'un programme en cours d'exécution sur un système informatique. Les threads sont des entités encore plus petites au sein d'un processus, et ils peuvent être considérés comme des sous-processus ou des tâches individuelles au sein d'un programme plus vaste.
+
+
+
+- Voici quelques caractéristiques importantes des threads ou processus légers :
+
+1. **Légers** : Les threads sont plus légers que les processus traditionnels. Ils consomment moins de ressources système, tels que la mémoire et le temps de création, par rapport aux processus complets.
+
+2. **Indépendants** : Chaque thread d'un processus fonctionne de manière indépendante des autres threads du même processus. Cependant, ils peuvent partager des ressources et des données avec d'autres threads du même processus, ce qui nécessite souvent une synchronisation pour éviter les conflits.
+
+3. **Coopératifs** : Les threads coopèrent entre eux pour accomplir une tâche commune. Ils peuvent se partager des charges de travail, diviser un problème en sous-tâches, ou exécuter des opérations en parallèle pour améliorer les performances.
+
+4. **Plus efficaces pour les tâches parallèles** : Les threads sont particulièrement utiles pour les tâches parallèles, où plusieurs tâches peuvent être exécutées simultanément pour tirer parti des processeurs multi-cœurs et améliorer les performances globales.
+
+5. **Plusieurs threads par processus** : Un processus peut contenir plusieurs threads, chacun ayant son propre contexte d'exécution, y compris des registres, une pile et un compteur de programme. Cela signifie que plusieurs threads peuvent être actifs en même temps dans le même processus.
+
+6. **Préemption** : Dans les systèmes multitâches préemptifs, les threads peuvent être interrompus à tout moment par le système d'exploitation pour permettre l'exécution d'autres threads. Cela permet un partage équitable du temps CPU entre les threads.
