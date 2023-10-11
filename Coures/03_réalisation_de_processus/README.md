@@ -274,7 +274,162 @@ entrer.
         
 3. **test & set : Cas du multiprocesseur**
 
+ 
+- Cette méthode est basée sur une instruction matérielle spéciale qui réalise une opération atomique permettant de tester et de définir une valeur en même temps.
 
+- Elle est utilisée pour coordonner l'accès de plusieurs processus à une ressource partagée, garantissant que deux processus ne peuvent pas accéder simultanément à cette ressource.
+
+- Dans un système multiprocesseur, le Test-and-Set est utilisé lorsque le masquage d'interruptions (interruption masking) n'est pas suffisant pour assurer l'exclusion mutuelle.
+
+
+- L'instruction spéciale Test-and-Set permet d'effectuer deux opérations en une seule instruction atomique :
+
+    1. Tester la valeur de la variable (booléenne) spécifiée. Si la valeur est "fausse" (0), le test renvoie "faux" (0), sinon, il renvoie "vrai" (1).
+
+    2. Définir la valeur de la variable à "vrai" (1) de manière atomique, quelle que soit la valeur précédente.
+
+
+- Cette combinaison de test et de définition atomiques garantit que deux processus ne peuvent pas modifier la variable en même temps, ce qui permet de gérer l'accès exclusif à la ressource partagée.
+
+- Un processus qui souhaite accéder à la ressource effectue un Test-and-Set sur une variable partagée: 
+    
+    * S'il obtient "faux" en retour, il sait qu'il a obtenu l'accès à la ressource. 
+    
+    * Sinon, il doit attendre.
+
+```ass
+A <- 0
+E: 
+    Test&Set A
+    jnz E
+ 
+// section critique
+
+
+Sortie:
+     move #0,A
+
+```
+
+
+## 4. `` Réalisation du noyau`` : **PedagOS :**
+
+-   **Objectif : description du fonctionnement d’un système complet appelé PedagOS**
+
+
+4.1 **Les composantes de La machine POP : Petit Ordinateur Personnel**
+
+- **UC** : processeure Monoprocesseur
+
+- **mémoire**
+
+- **clavier**
+
+- **écran**
+
+- **disque**
+
+- **registres généraux** : ``reg``
+
+- **mep:** c'est un registre qui stocke l'adresse prochiane de l'instruction qui serà exécute par le CPU .
+
+- **Horloge:**   
+
+    - Un emplacement de mémoire noté ``timer``
+    
+    - Mise en route de l’horloge = chargement  dans timer d’une valeur positive
+
+    -  Arrêt de l’horloge :  timer <- 0 # masque des interruptions
+
+    - Décrémenté chaque milliseconde
+
+    - Déclenche une interruption au passage de 1 à 0
+
+
+4.2 **Les Modes de notre SE :**
+
+- **Mode Noyau (Mode Maître) :** Le mode noyau est le mode d'exécution qui donne au système d'exploitation un contrôle complet sur les ressources matérielles de l'ordinateur. 
+
+- **Mode Utilisateur (Mode Esclave) :** Le mode utilisateur est le mode d'exécution dans lequel les applications utilisateur s'exécutent. Dans ce mode, les applications n'ont qu'un accès limité aux ressources matérielles et ne peuvent pas effectuer d'opérations privilégiées directes. Elles doivent faire des appels système pour demander au noyau d'effectuer des opérations en leur nom.
+
+
+
+4.3 **Les interruptions :**
+
+- Vecteur d’interruption :
+    - Contient les mots d’état des traitants
+
+- Sauve le ``mep`` dans un emplacement fixe noté  ``ancien_mep``
+
+- Charge dans ``mep``  l’entrée du vecteur d’interruption  qui correspond à la cause de l’interruption
+
+- On posséde  une Instruction de retour d’interuption : ``rti``
+
+- ``Masquage-démasquage`` :
+
+
+    - **Masquage** : Le masquage des interruptions est un mécanisme qui désactive temporairement les interruptions matérielles sur un processeur ou un cœur de processeur. Lorsque les interruptions sont masquées, le processeur ignore les demandes d'interruption et continue d'exécuter son programme actuel. 
+
+    -  **Démasquage des interruptions** : Le démasquage des interruptions est le processus inverse du masquage. Lorsque les interruptions sont démasquées, le processeur redevient sensible aux demandes d'interruption. Cela signifie que les interruptions en attente d'être traitées seront maintenant traitées.
+
+
+
+
+- ``Appel système`` : 
+    
+    - pour  le passage du ``Mode escalve`` au ``mode maitre`` : le SE lance une interruption 
+
+    - pour le retourt du ``mode maitre`` au `` mode esclave `` : le SE appéle l'instruction `rti`. 
+
+
+
+4.4. **Noyau de processus :** 
+
+
+a. **États des processus :** 
+
+- **états :**
+
+    - **Élu**  : ce processus s’exécute
+
+    - **Éligible** : attente de l’UC
+
+    - **Bloqué**  : attente dans une file de  sémaphore
+
+- **Transitions entre états :**
+
+    - **Élu --->  Bloqué :** si P(sémaphore.cpt) < 0
+
+    - **Bloqué ---> Éligible :** si un autre processus applique la fonction V sur le  sémaphore .
+
+
+b. **Table des processus :**
+
+- Pour chaque processus, on conserve un contexte :
+
+    - Registres généraux ``reg``
+    
+    - Mot d ’état : ``psw`` l'instruction prochaine à éxecuter 
+    
+    - Indicateurs ``etat`` : l'état d'un processus 
+    
+    - Priorité ``prio`` : son ordre de priorité pour l'ordonnacement 
+    
+    - Liens de chaînage
+
+    - Chaque processus est identifié par un ``pid``
+
+- Table des processus pid->reg, pid->prio
+
+b. **files d’attente :**
+
+
+
+
+• Table des processus
+• Table des sémaphores
+• Allocation de l’unit centrale
+• Réalisation des primitives
 
 
 
